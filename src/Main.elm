@@ -102,7 +102,7 @@ viewDebugInfo model =
             else
                 "Not Debugging"
     in
-    Element.row
+    Element.column
         []
         [ Element.paragraph [] [ Element.text ("threshold: " ++ String.fromInt model.threshold) ]
         , Element.paragraph [] [ Element.text ("window: " ++ String.fromInt model.window) ]
