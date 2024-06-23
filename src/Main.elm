@@ -76,7 +76,12 @@ initializeModel _ =
 
 
 {-
-   The view consists of five stacked panels. I only display/update the panels that I need to at any given time.
+   The view consists of stacked rows. I only display/update the panels that I need to at any given time.
+
+    Question
+    Buttons for possible responses
+    Progress
+    Debug
 
    I use the status member of the model to determine which panels get displayed.
 -}
@@ -87,27 +92,26 @@ viewModel model =
     Element.layout
         [ Element.width Element.fill
         , Element.height Element.fill
+        , Element.explain Debug.todo
         ]
-        (viewDebugInfo model)
+        (Element.column
+            []
+            [ viewDebugPanel model ]
+        )
 
 
-viewDebugInfo : Model -> Element.Element Msg
-viewDebugInfo model =
-    let
-        debugging : String
-        debugging =
-            if model.debug then
-                "Debugging"
+viewDebugPanel : Model -> Element.Element Msg
+viewDebugPanel model =
+    if model.debug then
+        Element.column
+            []
+            [ Element.paragraph [] [ Element.text ("threshold: " ++ String.fromInt model.threshold) ]
+            , Element.paragraph [] [ Element.text ("window: " ++ String.fromInt model.window) ]
+            , Element.paragraph [] [ Element.text "Debugging" ]
+            ]
 
-            else
-                "Not Debugging"
-    in
-    Element.column
-        []
-        [ Element.paragraph [] [ Element.text ("threshold: " ++ String.fromInt model.threshold) ]
-        , Element.paragraph [] [ Element.text ("window: " ++ String.fromInt model.window) ]
-        , Element.paragraph [] [ Element.text debugging ]
-        ]
+    else
+        Element.none
 
 
 
