@@ -104,9 +104,9 @@ viewDebugInfo model =
     in
     Element.row
         []
-        [ Element.text ("threshold: " ++ String.fromInt model.threshold)
-        , Element.text ("window: " ++ String.fromInt model.window)
-        , Element.text debugging
+        [ Element.paragraph [] [ Element.text ("threshold: " ++ String.fromInt model.threshold) ]
+        , Element.paragraph [] [ Element.text ("window: " ++ String.fromInt model.window) ]
+        , Element.paragraph [] [ Element.text debugging ]
         ]
 
 
