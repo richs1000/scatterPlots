@@ -10,6 +10,10 @@ port module Main exposing (..)
 
 import Browser
 import Element
+import Element.Background
+import Element.Border
+import Element.Font
+import Element.Input
 import Html
 
 
@@ -49,6 +53,7 @@ type alias Model =
     , threshold : Int -- How many questions does the user need to get right?
     , window : Int -- How big is the window for reaching the threshold?
     , debug : Bool -- Do we show debug information?
+    , question : Question -- What question do we show to the user?
     }
 
 
@@ -58,12 +63,78 @@ type RightOrWrong
     | NothingYet -- this is used by progress bar when the window is bigger than the number of responses
 
 
+type alias QuestionResponse =
+    { textPart : String -- What gets displayed on the button for the user to choose
+    , feedback : String -- The feedback associated with this answer
+    , correctAnswer : Bool -- True when this is the right answer
+    }
+
+
+correctResponse : QuestionResponse
+correctResponse =
+    { textPart = "This is the right answer"
+    , feedback = "You chose the right answer"
+    , correctAnswer = True
+    }
+
+
+oneDistractor : QuestionResponse
+oneDistractor =
+    { textPart = "This is the first distractor"
+    , feedback = "You chose the first distractor"
+    , correctAnswer = False
+    }
+
+
+anotherDistractor : QuestionResponse
+anotherDistractor =
+    { textPart = "This is the second distractor"
+    , feedback = "You chose the second distractor"
+    , correctAnswer = False
+    }
+
+
+type alias ScatterPlot =
+    { predictorVariable : String -- name of x-axis variable
+    , responseVariable : String -- name of y-axis variable
+    , slope : Float -- the m of y = mx + b
+    , yIntercept : Float -- the b of y = mx + b
+    , standardDeviation : Float -- how much items vary around the line
+    }
+
+
+sampleScatterPlot : ScatterPlot
+sampleScatterPlot =
+    { predictorVariable = "Age"
+    , responseVariable = "Strength"
+    , slope = 2.0
+    , yIntercept = 3.0
+    , standardDeviation = 0.5
+    }
+
+
+type alias Question =
+    { stem : String -- Question that gets shown to the user
+    , figure : ScatterPlot -- Image that goes along with the question
+    , possibleResponses : List QuestionResponse -- List of answers the user can choose from
+    }
+
+
+sampleQuestion : Question
+sampleQuestion =
+    { stem = "What is the predictor variable?"
+    , figure = sampleScatterPlot
+    , possibleResponses = [ correctResponse, oneDistractor, anotherDistractor ]
+    }
+
+
 initialModel : Model
 initialModel =
     { progress = List.repeat 6 NothingYet
     , threshold = 4
     , window = 6
     , debug = True
+    , question = sampleQuestion
     }
 
 
@@ -78,8 +149,8 @@ initializeModel _ =
 {-
    The view consists of stacked rows. I only display/update the panels that I need to at any given time.
 
-    Question
-    Buttons for possible responses
+    Question + Image + Buttons for possible responses
+    Feedback (after user submits answer)
     Progress
     Debug
 
@@ -92,19 +163,99 @@ viewModel model =
     Element.layout
         [ Element.width Element.fill
         , Element.height Element.fill
-        , Element.explain Debug.todo
         ]
         (Element.column
-            []
-            [ viewDebugPanel model ]
+            [ Element.width Element.fill ]
+            [ viewQuestionPanel model.question
+            , viewProgressPanel model.progress
+            , viewDebugPanel model
+            ]
         )
+
+
+viewQuestionPanel : Question -> Element.Element Msg
+viewQuestionPanel question =
+    let
+        drawButton index btn =
+            Element.Input.button
+                [ Element.padding 10
+                , Element.Border.width 3
+                , Element.Border.rounded 6
+                , Element.Border.color (Element.rgb255 0 0 0)
+                , Element.Font.variant Element.Font.smallCaps
+                , Element.width (Element.fillPortion 1)
+                ]
+                { onPress = Just (MsgUserPressedBtn index)
+                , label = Element.el [ Element.centerX ] (Element.text btn.textPart)
+                }
+    in
+    Element.column
+        [ Element.width Element.fill
+        , Element.padding 20
+        , Element.explain Debug.todo
+        ]
+        [ Element.row
+            [ Element.width Element.fill ]
+            [ Element.column
+                [ Element.width (Element.fillPortion 1)
+                , Element.padding 10
+                ]
+                [ Element.text question.stem ]
+            , Element.column
+                [ Element.width (Element.fillPortion 1)
+                , Element.padding 10
+                ]
+                [ Element.el [ Element.centerX ] (Element.text "Image goes here") ]
+            ]
+        , Element.row
+            [ Element.width Element.fill ]
+            (List.indexedMap drawButton question.possibleResponses)
+        ]
+
+
+viewProgressPanel : List RightOrWrong -> Element.Element Msg
+viewProgressPanel progress =
+    let
+        -- Creates an empty element with a border (a box) for each item in progress list
+        drawProgressBox p =
+            let
+                fillColor =
+                    case p of
+                        RightAnswer ->
+                            Element.rgb255 0 255 0
+
+                        WrongAnswer ->
+                            Element.rgb255 255 0 0
+
+                        NothingYet ->
+                            Element.rgb 255 255 255
+            in
+            Element.el
+                [ Element.Background.color fillColor
+                , Element.padding 10
+                , Element.Border.rounded 6
+                , Element.Border.width 3
+                , Element.Border.color (Element.rgb255 0 0 0)
+                , Element.height Element.fill
+                , Element.width (Element.fillPortion 1)
+                ]
+                Element.none
+    in
+    Element.row
+        [ Element.width Element.fill
+        , Element.height (Element.px 100)
+        , Element.padding 20
+        ]
+        (List.map drawProgressBox progress)
 
 
 viewDebugPanel : Model -> Element.Element Msg
 viewDebugPanel model =
     if model.debug then
         Element.column
-            []
+            [ Element.width Element.fill
+            , Element.padding 20
+            ]
             [ Element.paragraph [] [ Element.text ("threshold: " ++ String.fromInt model.threshold) ]
             , Element.paragraph [] [ Element.text ("window: " ++ String.fromInt model.window) ]
             , Element.paragraph [] [ Element.text "Debugging" ]
@@ -135,6 +286,7 @@ viewDebugPanel model =
 type Msg
     = MsgSendToTorus -- The user reached the threshold, go back to Torus (send to JavaScript)
     | MsgGetFromTorus Settings -- Settings for mastery questions coming in from Torus (get from JavaScript)
+    | MsgUserPressedBtn Int -- User chose one of the answer buttons
 
 
 updateModel : Msg -> Model -> ( Model, Cmd Msg )
@@ -154,6 +306,10 @@ updateModel msg model =
               }
             , Cmd.none
             )
+
+        -- User chose one of the answer buttons
+        MsgUserPressedBtn btnNumber ->
+            ( model, Cmd.none )
 
 
 mySubscriptions : Model -> Sub Msg
